@@ -295,8 +295,8 @@
     let lastCartData = null;
 
     function checkForUpdates() {
+      // 1. Try direct memory access via window.opener (Perfect for local file:// testing)
       try {
-        // 1. Try direct memory access via window.opener (Perfect for local file:// testing)
         if (window.opener && !window.opener.closed && window.opener.POS) {
           const items = window.opener.POS.cart || [];
           const totalAmount = window.opener.POS.getTotal ? window.opener.POS.getTotal() : 0;
@@ -306,17 +306,21 @@
             lastCartData = currentStr;
             updateCustomerView({ items: items, total: totalAmount });
           }
-          return;
+          return; // If successful, exit here
         }
+      } catch (e) {
+        // Opener access blocked (Cross-origin on some live hosts), just continue to fallback
+      }
 
-        // 2. Fallback to localStorage (Standard for web servers & GitHub pages)
+      // 2. Fallback to localStorage (Standard for web servers & GitHub pages)
+      try {
         const stored = localStorage.getItem('bazaarpos_current_cart');
         if (stored && stored !== lastCartData) {
           lastCartData = stored;
           updateCustomerView(JSON.parse(stored));
         }
       } catch (e) {
-        // Silently catch cross-origin or parsing errors
+        // Silently catch parsing or access errors
       }
     }
 
