@@ -11,6 +11,10 @@
     rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="css/styles.css">
+  
+  <!-- Supabase JS CDN and Config -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/supabase-config.js"></script>
 
   <style>
     /* Customer View Specific Overrides */
@@ -336,6 +340,38 @@
 
     // 3. Fallback polling for local file:// execution where storage events are often blocked by browsers
     setInterval(checkForUpdates, 300);
+
+    // 4. Cloud Synchronizer - Automatically updates from mobile device scanners via Supabase Realtime
+    async function initCloudCart() {
+      if (typeof supabaseClient === 'undefined') return;
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session || !session.user) return;
+        
+        const userId = session.user.id;
+        
+        // Listen for all future updates over the internet
+        supabaseClient
+          .channel('cv_active_carts')
+          .on('postgres_changes', { 
+             event: '*', 
+             schema: 'public', 
+             table: 'active_carts', 
+             filter: `user_id=eq.${userId}` 
+          }, payload => {
+             if (payload.new && payload.new.cart_data) {
+               const newItems = payload.new.cart_data;
+               const totalAmount = newItems.reduce((s, i) => s + (i.price * i.qty), 0);
+               updateCustomerView({ items: newItems, total: totalAmount });
+             }
+          })
+          .subscribe();
+      } catch (e) {
+        console.error('Realtime cloud sync failed to hook.', e);
+      }
+    }
+
+    initCloudCart();
 
   </script>
 

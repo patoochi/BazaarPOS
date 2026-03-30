@@ -8,10 +8,45 @@ const POS = {
   scannerStream: null,
   isProcessingScan: false,
 
+  channel: null,
+
   async load() {
     if (!Auth.currentUser) return;
     await POS.fetchProducts();
+    await POS.fetchCloudCart();
+    POS.setupRealtime();
     POS.renderCart();
+  },
+
+  async fetchCloudCart() {
+    try {
+      const { data, error } = await supabaseClient
+        .from('active_carts')
+        .select('cart_data')
+        .eq('user_id', Auth.currentUser.id)
+        .maybeSingle();
+      if (data && data.cart_data) {
+        POS.cart = data.cart_data;
+      }
+    } catch (e) { console.error('Cloud load err:', e); }
+  },
+
+  setupRealtime() {
+    if (POS.channel) return;
+    POS.channel = supabaseClient
+      .channel('pos_active_carts')
+      .on('postgres_changes', { 
+         event: '*', 
+         schema: 'public', 
+         table: 'active_carts', 
+         filter: `user_id=eq.${Auth.currentUser.id}` 
+      }, payload => {
+         if (payload.new && payload.new.cart_data) {
+            POS.cart = payload.new.cart_data;
+            POS.renderCart(false); // Render UI but skip mirroring back to cloud
+         }
+      })
+      .subscribe();
   },
 
   async fetchProducts() {
@@ -134,12 +169,16 @@ const POS = {
     return POS.cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   },
 
-  renderCart() {
-    // Broadcast cart data to customer view via localStorage
+  renderCart(syncCloud = true) {
+    // Broadcast cart data to customer view via localStorage (Local backup bridge)
     localStorage.setItem('bazaarpos_current_cart', JSON.stringify({
       items: POS.cart,
       total: POS.getTotal()
     }));
+
+    if (syncCloud && Auth.currentUser) {
+      POS.syncCartCloud();
+    }
 
     const cartItems = document.getElementById('cart-items');
     const cartCount = document.getElementById('cart-count');
@@ -183,6 +222,20 @@ const POS = {
     `).join('');
 
     cartTotal.textContent = '₱' + POS.getTotal().toLocaleString('en-PH', { minimumFractionDigits: 2 });
+  },
+
+  async syncCartCloud() {
+    try {
+      await supabaseClient
+        .from('active_carts')
+        .upsert({ 
+          user_id: Auth.currentUser.id, 
+          cart_data: POS.cart, 
+          updated_at: new Date().toISOString() 
+        });
+    } catch (e) {
+      console.error('Failed to push cart:', e);
+    }
   },
 
   // Checkout
