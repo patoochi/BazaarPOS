@@ -244,10 +244,17 @@ const Inventory = {
       try {
         const barcodes = await detector.detect(video);
         if (barcodes.length > 0) {
+          const code = barcodes[0].rawValue;
+          
+          // Ignore highly unlikely, short codes (noise)
+          if (!code || code.length < 5) {
+            if (Inventory.scannerStream) requestAnimationFrame(detect);
+            return;
+          }
+
           if (Inventory.isProcessingScan) return;
           Inventory.isProcessingScan = true;
 
-          const code = barcodes[0].rawValue;
           document.getElementById('inv-sku').value = code;
           document.getElementById('inv-barcode-preview').textContent = `Scanned: ${code}`;
           Toast.show(`Barcode scanned: ${code}`, 'success');
@@ -287,10 +294,14 @@ const Inventory = {
     });
 
     Quagga.onDetected((result) => {
+      const code = result.codeResult.code;
+      
+      // Filter out common false-positives
+      if (!code || code.length < 5) return;
+
       if (Inventory.isProcessingScan) return;
       Inventory.isProcessingScan = true;
 
-      const code = result.codeResult.code;
       document.getElementById('inv-sku').value = code;
       document.getElementById('inv-barcode-preview').textContent = `Scanned: ${code}`;
       Toast.show(`Barcode scanned: ${code}`, 'success');
