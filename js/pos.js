@@ -135,6 +135,12 @@ const POS = {
   },
 
   renderCart() {
+    // Broadcast cart data to customer view via localStorage
+    localStorage.setItem('bazaarpos_current_cart', JSON.stringify({
+      items: POS.cart,
+      total: POS.getTotal()
+    }));
+
     const cartItems = document.getElementById('cart-items');
     const cartCount = document.getElementById('cart-count');
     const cartTotal = document.getElementById('cart-total-value');
