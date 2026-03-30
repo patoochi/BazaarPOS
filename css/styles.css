@@ -448,6 +448,7 @@ textarea.form-input {
 /* ---------- Main Area ---------- */
 .main-area {
   flex: 1;
+  min-width: 0;
   margin-left: var(--sidebar-width);
   min-height: 100vh;
   transition: var(--transition);
@@ -1162,10 +1163,13 @@ textarea.form-input {
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: #000;
+  aspect-ratio: 4 / 3;
 }
 
-.scanner-container video {
+.scanner-container video, .scanner-container canvas {
   width: 100%;
+  height: 100%;
+  object-fit: cover;
   display: block;
 }
 
