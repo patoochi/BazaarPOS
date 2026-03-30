@@ -6,6 +6,7 @@ const POS = {
   products: [],
   cart: [],
   scannerStream: null,
+  isProcessingScan: false,
 
   async load() {
     if (!Auth.currentUser) return;
@@ -292,6 +293,7 @@ const POS = {
 
   // Barcode scanner for POS
   async startScanner() {
+    POS.isProcessingScan = false;
     const container = document.getElementById('pos-scanner-container');
     const video = document.getElementById('pos-scanner-video');
     container.style.display = 'block';
@@ -329,6 +331,12 @@ const POS = {
         const barcodes = await detector.detect(video);
         if (barcodes.length > 0) {
           const code = barcodes[0].rawValue;
+          
+          if (!code || code.length < 5) {
+            if (POS.scannerStream) requestAnimationFrame(detect);
+            return;
+          }
+
           POS.handleScannedBarcode(code);
           return;
         }
@@ -359,12 +367,18 @@ const POS = {
     });
 
     Quagga.onDetected((result) => {
-      POS.handleScannedBarcode(result.codeResult.code);
+      const code = result.codeResult.code;
+      if (!code || code.length < 5) return;
+      
+      POS.handleScannedBarcode(code);
       Quagga.stop();
     });
   },
 
   handleScannedBarcode(code) {
+    if (POS.isProcessingScan) return;
+    POS.isProcessingScan = true;
+
     // Find product by SKU/barcode
     const product = POS.products.find(p => p.sku === code);
     if (product) {
