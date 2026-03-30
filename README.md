@@ -1,41 +1,52 @@
-# BazaarOS — POS & Inventory Management System
-
-A modern Point of Sale and Inventory Management web application built for retail store owners.
-
-**BSIT College Project**
-
----
-
-## 🚀 How to Run
-
-1. Open `index.html` in any modern browser (Chrome, Edge, Firefox).
-   - You can simply double-click the file, or
-   - Use a local server like VS Code's **Live Server** extension for best results.
-
-2. **Register** a new account on the app.
-3. **Log in** and start adding products to your inventory.
-4. Use the **POS** page to sell products by scanning barcodes or clicking product cards.
+<div align="center">
+  <img src="RetailOS Logo.png" alt="BazaarOS Logo" width="150" />
+  <h1>BazaarOS</h1>
+  <p><strong>A Modern, Multi-Tenant POS & Inventory Management System</strong></p>
+  
+  [![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)](https://developer.mozilla.org/en-US/docs/Glossary/HTML5)
+  [![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/CSS)
+  [![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+  [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
+</div>
 
 ---
 
-## 🗄️ Supabase Setup (Required First)
+## 🚀 Overview
 
-Before the app works, you need to create the database tables in your Supabase project.
+BazaarOS is a lightweight, high-performance Single-Page Application (SPA) designed to help retail store owners manage their inventory, process sales, and track revenue & profit in real time. It was built strictly with vanilla web technologies, requiring no build steps or bundlers.
 
-### Step 1: Go to Supabase SQL Editor
+**Features included:**
+- **Secure Multi-Tenancy**: Built-in Row-Level Security ensures your data remains completely isolated and protected, even if multiple stores register on the app.
+- **Profit Tracking System**: Calculates exact profit margins using the historical cost of goods at the time of sale.
+- **Dynamic POS Interface**: Add items, adjust quantities, scan barcodes, and instantly generate receipts.
+- **Live Analytical Dashboard**: View realtime Total Revenue, Total Profit, Sales Count, and Low-Stock warnings.
+- **Barcode Scanner**: Built-in camera support using the native `BarcodeDetector` API (with QuaggaJS fallback).
 
-1. Log in to [Supabase Dashboard](https://supabase.com/dashboard)
-2. Select your project: `mkgklnnlmifrkzetivvb`
-3. Go to **SQL Editor** (left sidebar)
-4. Click **+ New Query**
+---
 
-### Step 2: Run This SQL
+## 🛠️ Tech Stack
+- **Frontend**: Vanilla HTML5, CSS3 (Glassmorphism UI), and JavaScript (ES6 Modules)
+- **Backend / Database**: [Supabase](https://supabase.com) (PostgreSQL + Auth)
+- **Icons**: [FontAwesome 6](https://fontawesome.com/)
+- **Typography**: [Google Inter Font](https://fonts.google.com/specimen/Inter)
 
-Copy and paste the entire SQL below, then click **Run**:
+---
+
+## 🗄️ Database Setup (Supabase)
+
+Before running the application, you **must** configure your Supabase backend. The entire app relies on these tables, and it will intentionally fail to load without them.
+
+### 1. Create a Supabase Project
+1. Register/Login at [Supabase](https://supabase.com/).
+2. Create a new project.
+3. Once generated, go to the **SQL Editor** on the left menu, and click **New Query**.
+
+### 2. Run the Initial Schema Script
+Copy and paste the exact SQL below and click **Run**. This generates your tables, columns, and absolute Row-Level Security policies to protect your data.
 
 ```sql
 -- ============================================
--- BazaarOS Database Setup
+-- BazaarOS Database Setup (Includes Profit tracking)
 -- ============================================
 
 -- 1. PRODUCTS TABLE
@@ -47,6 +58,7 @@ CREATE TABLE IF NOT EXISTS products (
   category TEXT DEFAULT 'Others',
   quantity INTEGER DEFAULT 0,
   price NUMERIC(10,2) DEFAULT 0,
+  cost_price NUMERIC(10,2) DEFAULT 0,
   supplier TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -57,6 +69,8 @@ CREATE TABLE IF NOT EXISTS sales (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   items JSONB NOT NULL DEFAULT '[]',
   total NUMERIC(10,2) DEFAULT 0,
+  total_cost NUMERIC(10,2) DEFAULT 0,
+  total_profit NUMERIC(10,2) DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -73,7 +87,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 
 -- ============================================
--- Row Level Security (RLS)
+-- Row Level Security (RLS) Configuration
 -- ============================================
 
 -- Enable RLS on all tables
@@ -82,109 +96,69 @@ ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 -- PRODUCTS policies: users can only access their own products
-CREATE POLICY "Users can view own products"
-  ON products FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own products"
-  ON products FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own products"
-  ON products FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own products"
-  ON products FOR DELETE
-  USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own products" ON products FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own products" ON products FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own products" ON products FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own products" ON products FOR DELETE USING (auth.uid() = user_id);
 
 -- SALES policies: users can only access their own sales
-CREATE POLICY "Users can view own sales"
-  ON sales FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own sales"
-  ON sales FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can view own sales" ON sales FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own sales" ON sales FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- PROFILES policies: users can only access their own profile
-CREATE POLICY "Users can view own profile"
-  ON profiles FOR SELECT
-  USING (auth.uid() = id);
-
-CREATE POLICY "Users can insert own profile"
-  ON profiles FOR INSERT
-  WITH CHECK (auth.uid() = id);
-
-CREATE POLICY "Users can update own profile"
-  ON profiles FOR UPDATE
-  USING (auth.uid() = id);
+CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
 ```
 
-### Step 3: Disable Email Confirmation (Recommended for Testing)
+### 3. Disable Email Confirmation (For Testing)
+To drastically speed up local testing, go to **Authentication > Providers > Email** in Supabase and toggle **"Confirm email"** to **OFF**. 
 
-1. Go to **Authentication** → **Providers** → **Email**
-2. Toggle OFF **"Confirm email"**
-3. This allows instant registration without email verification.
+### 4. Connect the Frontend
+Open `/js/supabase-config.js` and paste your Supabase Project URL and Anon Key inside standard string boundaries:
+
+```javascript
+const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+```
 
 ---
 
-## 🔌 How Supabase is Connected
+## 💻 Running Locally
 
-| Component | Supabase Feature |
-|-----------|-----------------|
-| Login / Register | `supabase.auth.signInWithPassword()` / `supabase.auth.signUp()` |
-| Session Persistence | `supabase.auth.onAuthStateChange()` auto-detects returning users |
-| Product CRUD | `supabase.from('products').select/insert/update/delete()` |
-| Sales Records | `supabase.from('sales').insert()` on checkout |
-| Store Profile | `supabase.from('profiles').select/update()` |
-| Data Security | Row Level Security (RLS) ensures users only see their own data |
+Because this relies heavily on ES6 modules and specific Supabase CDN loading structures, **you must run it via a local HTTP server** (running via `file:///` causes CORS and Module fetch errors).
 
-**Config file:** `js/supabase-config.js` contains the project URL and anon key.
+**Method 1: VS Code (Recommended)**
+1. Open the folder in VS Code.
+2. Install the **Live Server** extension.
+3. Right-click `index.html` -> "Open with Live Server".
+
+**Method 2: Python HTTP Server**
+1. Open your terminal in the directory.
+2. Run `python -m http.server 3000`
+3. Navigate to `http://localhost:3000`
 
 ---
 
-## 📁 File Structure
+## 📂 Project Structure
 
-```
-RetailOS/
-├── index.html              ← Main SPA (Single Page App)
+```text
+├── index.html              # Main SPA Shell & UI Modals
 ├── css/
-│   └── styles.css          ← Complete design system (dark theme)
+│   └── styles.css          # Core Design System, Variables, Grid Layouts
 ├── js/
-│   ├── supabase-config.js  ← Supabase URL + API key
-│   ├── auth.js             ← Login, Register, Logout, Sessions
-│   ├── router.js           ← SPA page routing
-│   ├── dashboard.js        ← Dashboard stats from Supabase
-│   ├── inventory.js        ← Product CRUD + barcode scanner
-│   ├── pos.js              ← POS cart, checkout, barcode scanner
-│   ├── profile.js          ← Store profile management
-│   └── settings.js         ← App settings + Toast notifications
-├── assets/
-│   └── logo.png            ← App logo
-└── README.md               ← This file
+│   ├── auth.js             # Supabase Authentication & Session Persistence
+│   ├── dashboard.js        # Analytics Aggregation Engine
+│   ├── inventory.js        # Product CRUD & Barcode Camera Logic
+│   ├── pos.js              # Checkout Cart, Receipts, Margin calculations
+│   ├── profile.js          # Store Meta Data 
+│   ├── router.js           # Hash-based SPA Navigation
+│   ├── settings.js         # CSV Exports & UX Toggles
+│   └── supabase-config.js  # Environment Config
+└── README.md
 ```
 
----
-
-## ✨ Features
-
-- **Authentication** — Supabase email/password auth with persistent sessions
-- **Dashboard** — Live stats (revenue, sales, products, low stock) pulled from database
-- **Inventory** — Add, edit, delete products with barcode scanner support
-- **POS** — Add-to-cart system with quantity controls, barcode scanning, and checkout
-- **Profile** — Store info saved to database
-- **Settings** — Notification preferences, CSV export, full data backup
-- **Responsive** — Works on desktop, tablet, and mobile
-- **Dark Theme** — Modern glassmorphism UI
-
----
-
-## 🛠️ Technologies
-
-- HTML5, CSS3, Vanilla JavaScript (no framework)
-- [Supabase](https://supabase.com) — Auth + PostgreSQL database
-- [Font Awesome 6](https://fontawesome.com) — Icons
-- [Inter Font](https://fonts.google.com/specimen/Inter) — Typography
-- [QuaggaJS](https://github.com/ericblade/quagga2) — Barcode scanning fallback
-- [BarcodeDetector API](https://developer.mozilla.org/en-US/docs/Web/API/BarcodeDetector) — Native barcode scanning
+<div align="center">
+  <br>
+  <p><i>Made for BS Information Technology Project</i></p>
+</div>
