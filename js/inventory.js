@@ -205,8 +205,10 @@ const Inventory = {
 
   // Barcode scanner for inventory
   scannerStream: null,
+  isProcessingScan: false,
 
   async startScanner() {
+    Inventory.isProcessingScan = false;
     const container = document.getElementById('inv-scanner-container');
     const video = document.getElementById('inv-scanner-video');
     container.style.display = 'block';
@@ -242,6 +244,9 @@ const Inventory = {
       try {
         const barcodes = await detector.detect(video);
         if (barcodes.length > 0) {
+          if (Inventory.isProcessingScan) return;
+          Inventory.isProcessingScan = true;
+
           const code = barcodes[0].rawValue;
           document.getElementById('inv-sku').value = code;
           document.getElementById('inv-barcode-preview').textContent = `Scanned: ${code}`;
@@ -282,6 +287,9 @@ const Inventory = {
     });
 
     Quagga.onDetected((result) => {
+      if (Inventory.isProcessingScan) return;
+      Inventory.isProcessingScan = true;
+
       const code = result.codeResult.code;
       document.getElementById('inv-sku').value = code;
       document.getElementById('inv-barcode-preview').textContent = `Scanned: ${code}`;
